@@ -81,6 +81,54 @@ The API does not start when PostgreSQL is unavailable. Prisma Studio is availabl
 npm run prisma:studio
 ```
 
+## Database Architecture
+
+This template uses PostgreSQL with Prisma as the data-access layer. The current domain model keeps the foundation simple and reusable while preparing for future user and RBAC features.
+
+```text
+User
+ │
+ ▼
+UserRole
+ │
+ ▼
+Role
+ │
+ ▼
+RolePermission
+ │
+ ▼
+Permission
+```
+
+### Models
+
+- `User`: stores the core account record, including `name`, unique `email`, `passwordHash`, `status`, and optional verification/login timestamps.
+- `Role`: defines reusable application roles such as `SUPER_ADMIN`, `ADMIN`, and `USER`.
+- `Permission`: defines generic permissions such as `USER_READ`, `ROLE_CREATE`, and `PERMISSION_MANAGE`.
+- `UserRole`: explicit many-to-many join table linking users to roles.
+- `RolePermission`: explicit many-to-many join table linking roles to permissions.
+- `SystemSetting`: keeps the project’s existing configuration key/value records intact.
+
+### Relationships
+
+- `User ↔ Role` is modeled through `UserRole`.
+- `Role ↔ Permission` is modeled through `RolePermission`.
+- The join tables are explicit and enforce uniqueness with composite primary keys, preventing duplicate assignments.
+
+### Migration and seed workflow
+
+```bash
+npx prisma validate
+npx prisma generate
+npx prisma migrate dev --name <migration_name>
+npx prisma db seed
+```
+
+The seed is idempotent and creates the default roles and permissions without creating any admin user account or authentication credentials.
+
+> Authentication, authorization, JWT, refresh tokens, OTP, email verification, and password reset are planned for later phases and are intentionally not implemented in this repository state.
+
 ## Error Handling
 
 The application uses a centralized error pipeline for controllers and services:
@@ -94,10 +142,10 @@ Error responses use this format:
 
 ```json
 {
-   "success": false,
-   "message": "Resource not found",
-   "code": "RESOURCE_NOT_FOUND",
-   "details": null
+  "success": false,
+  "message": "Resource not found",
+  "code": "RESOURCE_NOT_FOUND",
+  "details": null
 }
 ```
 

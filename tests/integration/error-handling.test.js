@@ -2,7 +2,7 @@ import express from 'express';
 import { expect } from 'chai';
 import { describe, it } from 'mocha';
 import request from 'supertest';
-import { Prisma } from '@prisma/client';
+import { Prisma } from '../../generated/prisma/client.ts';
 import app from '../../src/app.js';
 import ERROR_CODES from '../../src/constants/error-codes.js';
 import HTTP_STATUS from '../../src/constants/http-status.js';
