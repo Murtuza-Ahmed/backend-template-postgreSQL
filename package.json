@@ -1,43 +1,45 @@
 {
   "name": "backend-template",
   "version": "1.0.0",
-  "description": "Scalable and production-ready Node.js backend starter template for building secure REST APIs.",
-  "main": "index.js",
+  "description": "Production-ready Node.js + Express backend template for secure REST APIs.",
+  "main": "src/index.js",
+  "type": "module",
   "author": {
     "name": "Murtuza Ahmed",
     "url": "https://github.com/Murtuza-Ahmed"
   },
   "license": "ISC",
-  "scripts": {
-    "test": "nyc mocha --timeout=60000 --exit",
-    "lint": "eslint \"**/*.js\"",
-    "start": "node src/index.js",
-    "dev": "nodemon src/index.js",
-    "pre-commit": "lint-staged",
-    "pre-push": "npm test"
-  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Murtuza-Ahmed/backend-template.git"
   },
+  "homepage": "https://github.com/Murtuza-Ahmed/backend-template#readme",
+  "bugs": {
+    "url": "https://github.com/Murtuza-Ahmed/backend-template/issues"
+  },
   "keywords": [
     "nodejs",
     "express",
+    "postgresql",
+    "prisma",
     "rest-api",
     "backend",
     "template",
     "starter"
   ],
-  "type": "module",
-  "lint-staged": {
-    "*.js": [
-      "npm run lint -- --fix"
-    ]
+  "scripts": {
+    "dev": "nodemon src/index.js",
+    "start": "node src/index.js",
+    "test": "mocha \"tests/**/*.test.js\" --timeout=60000 --exit",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "prisma": "prisma",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:studio": "prisma studio",
+    "prisma:seed": "node prisma/seed.js",
+    "prepare": "husky install"
   },
-  "bugs": {
-    "url": "https://github.com/Murtuza-Ahmed/backend-template/issues"
-  },
-  "homepage": "https://github.com/Murtuza-Ahmed/backend-template#readme",
   "imports": {
     "#config/*": "./src/config/*.js",
     "#constants/*": "./src/constants/*.js",
@@ -49,6 +51,40 @@
     "#controllers/*": "./src/controllers/*.js"
   },
   "engines": {
-    "node": ">=24"
+    "node": ">=20"
+  },
+  "lint-staged": {
+    "*.js": [
+      "eslint --fix",
+      "prettier --write"
+    ]
+  },
+  "dependencies": {
+    "@prisma/adapter-pg": "^7.10.0",
+    "@prisma/client": "^7.10.0",
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.2",
+    "express-rate-limit": "^7.1.5",
+    "helmet": "^8.0.0",
+    "jsonwebtoken": "^9.0.2",
+    "morgan": "^1.10.0",
+    "nodemailer": "^6.9.16",
+    "pg": "^8.23.0",
+    "prisma": "^7.10.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.17.0",
+    "chai": "^5.0.0",
+    "eslint": "^9.17.0",
+    "eslint-config-prettier": "^10.1.8",
+    "husky": "^9.0.0",
+    "lint-staged": "^15.0.0",
+    "mocha": "^12.0.1",
+    "nodemon": "^3.1.14",
+    "prettier": "^3.4.0",
+    "supertest": "^7.0.0"
   }
 }
