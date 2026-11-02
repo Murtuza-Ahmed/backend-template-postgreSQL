@@ -1,158 +1,192 @@
-# Backend Template
+# Backend Template — Express + PostgreSQL
 
-A production-oriented Node.js + Express backend foundation for building secure and scalable REST APIs.
+[![CI](https://github.com/Murtuza-Ahmed/backend-template-postgreSQL/actions/workflows/ci.yml/badge.svg)](https://github.com/Murtuza-Ahmed/backend-template-postgreSQL/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-## Phase 1 — Foundation
+A premium, production-ready Express + PostgreSQL (Prisma) starter with complete auth —
+built so any developer can fork it, rename it, and start building.
 
-This phase establishes the project bootstrap, centralized environment handling, Express app startup, health checks, and graceful shutdown behavior.
+## What's inside
 
-### Included
+| Area               | Details                                                                                                                      |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
+| **Auth**           | Signup + email OTP verification, signin, JWT access/refresh with **rotation + reuse detection**, logout                      |
+| **Google login**   | `POST /api/auth/google` — verify Google ID token, auto find-or-create user                                                   |
+| **Password flows** | Forgot password (reset link email), reset password, change password                                                          |
+| **Forgot email**   | Phone → SMS OTP → recover your email (Twilio, dev-log fallback)                                                              |
+| **Email change**   | OTP to the new address, all sessions revoked, old address notified                                                           |
+| **RBAC**           | `role: user \| admin`, `authorize("admin")` middleware                                                                       |
+| **Mail**           | Premium branded HTML templates (OTP, welcome, reset, password-changed, email-changed)                                        |
+| **Security**       | Helmet, rate limiting (strict on auth), NoSQL-injection guard, HPP, CORS allowlist, bcrypt-12, Joi validation, env fail-fast |
+| **Architecture**   | Modules (`routes → controller → service → validation`), thin controllers, **dynamic router**                                 |
+| **Users API**      | Profile (`/me`), admin CRUD, pagination + search, self-demote/self-delete guards                                             |
+| **Uploads**        | Cloudinary — images/video/PDF, magic-byte validated, per-type size limits, dynamic folder                                    |
 
-- Express application bootstrap
-- Centralized configuration with fail-fast validation
-- Health check endpoint
-- Graceful shutdown hooks
-- Security headers and CORS support
-- Basic structured logging setup
-- Clean project scripts for local startup
-
-### Local setup
+## Quick start
 
 ```bash
+# 1. Get the code
+git clone <your-fork-url> my-project
+cd my-project
+
+# 2. Install (Node 22+ required — see "engines" in package.json)
 npm install
+
+# 3. Configure — ONLY .env is used (copy the example, delete any old
+#    config.env / dev.env — this template reads .env and nothing else)
 cp .env.example .env
+# → fill DATABASE_URL, JWT secrets (generate with the command below), SMTP creds
+
+# 4. Create the database tables
+npx prisma migrate dev --name init
+
+# 5. (Optional) create the first admin account
+npx prisma db seed
+
+# 6. Run
 npm run dev
 ```
 
-Then visit:
-
-- http://localhost:5000/
-- http://localhost:5000/health
-
-### Notes
-
-- The configuration layer is the only place that reads environment variables.
-- Missing required values stop the application at startup with a clear error.
-- This repository intentionally keeps authentication, RBAC, and business modules out of the foundation phases.
-
-## Database Setup
-
-This project uses PostgreSQL through Prisma 7. Install PostgreSQL locally and create the development database before starting the API.
-
-1. Install PostgreSQL.
-2. Create a database, for example `backend_template_dev`.
-3. Copy `.env.example` to `.env` and set `DATABASE_URL` to the PostgreSQL connection string.
-4. Install dependencies:
-
-   ```bash
-   npm install
-   ```
-
-5. Generate the Prisma client:
-
-   ```bash
-   npm run prisma:generate
-   ```
-
-6. Create and apply the development migration:
-
-   ```bash
-   npm run prisma:migrate -- --name init
-   ```
-
-7. Run the idempotent seed:
-
-   ```bash
-   npm run prisma:seed
-   ```
-
-8. Start the development server:
-
-   ```bash
-   npm run dev
-   ```
-
-9. Verify application health at `http://localhost:5000/health`.
-10. Verify PostgreSQL readiness at `http://localhost:5000/health/ready`.
-
-The API does not start when PostgreSQL is unavailable. Prisma Studio is available with:
+Or with Docker (API + PostgreSQL in one command):
 
 ```bash
-npm run prisma:studio
+cp .env.example .env   # fill the secrets
+docker compose up --build
 ```
 
-## Database Architecture
-
-This template uses PostgreSQL with Prisma as the data-access layer. The current domain model keeps the foundation simple and reusable while preparing for future user and RBAC features.
-
-```text
-User
- │
- ▼
-UserRole
- │
- ▼
-Role
- │
- ▼
-RolePermission
- │
- ▼
-Permission
-```
-
-### Models
-
-- `User`: stores the core account record, including `name`, unique `email`, `passwordHash`, `status`, and optional verification/login timestamps.
-- `Role`: defines reusable application roles such as `SUPER_ADMIN`, `ADMIN`, and `USER`.
-- `Permission`: defines generic permissions such as `USER_READ`, `ROLE_CREATE`, and `PERMISSION_MANAGE`.
-- `UserRole`: explicit many-to-many join table linking users to roles.
-- `RolePermission`: explicit many-to-many join table linking roles to permissions.
-- `SystemSetting`: keeps the project’s existing configuration key/value records intact.
-
-### Relationships
-
-- `User ↔ Role` is modeled through `UserRole`.
-- `Role ↔ Permission` is modeled through `RolePermission`.
-- The join tables are explicit and enforce uniqueness with composite primary keys, preventing duplicate assignments.
-
-### Migration and seed workflow
+Generate JWT secrets:
 
 ```bash
-npx prisma validate
-npx prisma generate
-npx prisma migrate dev --name <migration_name>
-npx prisma db seed
+node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
 ```
 
-The seed is idempotent and creates the default roles and permissions without creating any admin user account or authentication credentials.
+Health check: `GET http://localhost:4000/api/health`
 
-> Authentication, authorization, JWT, refresh tokens, OTP, email verification, and password reset are planned for later phases and are intentionally not implemented in this repository state.
+## Environment variables
 
-## Error Handling
+See `.env.example` — every variable is documented there. The app **refuses to
+boot** if `DATABASE_URL`, `JWT_ACCESS_SECRET` or `JWT_REFRESH_SECRET` are
+missing. SMTP/Twilio/Google are optional: without them the app runs fine and
+emails/SMS fall back to the dev log.
 
-The application uses a centralized error pipeline for controllers and services:
+## Project structure
 
-- `ApiError` represents expected application errors with a status, code, and optional details.
-- `asyncHandler` forwards rejected async controller promises to Express error middleware.
-- The global error middleware maps `ApiError`, Zod validation errors, and common Prisma errors to safe responses.
-- `error-codes.js` contains reusable application-level error codes.
-
-Error responses use this format:
-
-```json
-{
-  "success": false,
-  "message": "Resource not found",
-  "code": "RESOURCE_NOT_FOUND",
-  "details": null
-}
+```
+server.js                 # entry: env → DB → app.listen
+src/
+  app.js                  # express factory (middleware, routes, errors)
+  config/                 # env.js (validated), prisma.js, google.js, cloudinary.js
+  prisma/                 # schema.prisma (User + Otp models), migrations, seed.js
+  modules/
+    auth/                 # auth.routes.js → auth.controller.js → auth.service.js
+    users/                # users.routes.js → users.controller.js → users.service.js
+  routes/index.js         # ★ dynamic loader — auto-mounts every module
+  middlewares/            # auth, authorize (RBAC), validate (Joi), rateLimit, error…
+  mail/                   # mailer.js + premium templates.js (APP_NAME branded)
+  utils/                  # ApiError, tokens, otp, cookies, sms, logger
 ```
 
-For example, a controller can throw an application error without formatting the response itself:
+**The golden rule:** controllers only validate → call service → respond.
+All business logic lives in `*.service.js`.
 
-```js
-throw new ApiError(404, 'Resource not found', 'RESOURCE_NOT_FOUND');
+## Adding a new module (dynamic router)
+
+No router file to touch — ever:
+
+1. Create `src/modules/orders/` with `orders.routes.js` (default-export the router),
+   plus `orders.controller.js`, `orders.service.js`, `orders.validation.js`.
+2. Restart — it's live at `/api/orders`.
+
+The loader scans `src/modules/*/*.routes.js` and mounts each at `/api/<folder>`.
+
+## API reference
+
+**Auth** (`/api/auth`)
+
+| Method & path                | Auth   | Description                                     |
+| ---------------------------- | ------ | ----------------------------------------------- |
+| `POST /signup`               | —      | Create account → OTP email                      |
+| `POST /verify-email`         | —      | `{email, otp}` → verified + tokens              |
+| `POST /signin`               | —      | `{email, password}` (verified accounts only)    |
+| `POST /google`               | —      | `{idToken}` → Google login                      |
+| `POST /refresh`              | cookie | Rotate refresh token                            |
+| `POST /logout`               | ✅     | Clear session + cookies                         |
+| `POST /forgot-password`      | —      | Reset-link email (always 200, no email probing) |
+| `POST /reset-password`       | —      | `{token, newPassword, confirmPassword}`         |
+| `POST /forgot-email`         | —      | `{phone}` → SMS OTP                             |
+| `POST /recover-email`        | —      | `{phone, otp}` → returns your email             |
+| `POST /change-password`      | ✅     | Revokes other sessions                          |
+| `POST /change-email/request` | ✅     | OTP to the new address                          |
+| `POST /change-email/confirm` | ✅     | `{otp}` → email changed, sessions revoked       |
+
+**Users** (`/api/users`)
+
+| Method & path            | Auth  | Description                       |
+| ------------------------ | ----- | --------------------------------- |
+| `GET /me`, `PATCH /me`   | ✅    | Own profile                       |
+| `GET /`                  | admin | Paginated list + `?search=`       |
+| `POST /`                 | admin | Create user (any role)            |
+| `GET /:id`, `PATCH /:id` | admin | Read / update (can't demote self) |
+| `DELETE /:id`            | admin | Delete (can't delete self)        |
+
+**Uploads** (`/api/uploads` — needs Cloudinary creds in `.env`)
+
+| Method & path                            | Auth | Description                                                                                                                                            |
+| ---------------------------------------- | ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `POST /`                                 | ✅   | Multipart `file` → magic-byte validated (JPG/PNG/GIF/WebP/MP4/PDF), per-type size limits, stored under `<CLOUDINARY_FOLDER>/images\|videos\|documents` |
+| `DELETE /?publicId=…&resourceType=image` | ✅   | Delete from Cloudinary                                                                                                                                 |
+
+The folder is dynamic — set `CLOUDINARY_FOLDER=your-brand` once in `.env`
+and every upload follows. No code change needed.
+
+Auth accepts `Authorization: Bearer <accessToken>` **or** the `accessToken`
+httpOnly cookie. Refresh token lives in the `refreshToken` cookie and rotates
+on every use — reuse = session revoked.
+
+## Google login setup (4 steps)
+
+1. [Google Cloud Console](https://console.cloud.google.com) → new project
+2. **APIs & Services → Credentials** → Create **OAuth client ID** (Web app)
+3. Add your frontend origin to **Authorized JavaScript origins**
+4. Copy the **Client ID** → `.env` as `GOOGLE_CLIENT_ID`
+
+Frontend: use Google Identity Services to get an ID token, then
+`POST /api/auth/google` with `{ "idToken": "..." }`. First login creates the
+account (verified); later logins link to the same email.
+
+## Make it yours (rename guide)
+
+1. `package.json` → change `"name": "backend-template"`
+2. `.env` → set `APP_NAME=YourName` (emails + logs follow automatically)
+3. `src/mail/templates.js` → tweak the header color (`#f59e0b`) to your brand
+4. Search the repo for `backend-template` and replace leftovers
+5. Push to your own repo — done
+
+## Security checklist before production
+
+- [ ] Real random `JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET` (not the examples)
+- [ ] `NODE_ENV=production`, `DATABASE_URL` points at your managed Postgres (e.g. Render / Neon / Supabase)
+- [ ] `FRONTEND_URLS` = only your real frontend origins
+- [ ] SMTP credentials are App Passwords / transactional service keys
+- [ ] `GOOGLE_CLIENT_ID` set if you use Google login
+- [ ] Rate limits reviewed in `src/middlewares/rateLimit.js`
+
+## Docker
+
+```bash
+docker compose up --build -d          # API on :4000, PostgreSQL on :5432
+docker compose exec api npx prisma migrate deploy   # create tables (first time only)
 ```
 
-In development, unexpected errors are logged with useful diagnostic information after sensitive values are redacted. In production, clients receive generic safe messages and never receive stack traces, credentials, database URLs, tokens, or other internal details.
+The `Dockerfile` (Node 22-alpine, non-root user, `/api/health` healthcheck)
+guarantees the exact same runtime on every machine. `.dockerignore` keeps
+secrets and junk out of the image.
+
+## Deploy
+
+**Render** — `render.yaml` is included (web service + env vars to fill in the
+dashboard). **Vercel** — `vercel.json` maps `/api/*` to the app.
+
+## License
+
+MIT — fork it, rename it, ship it.

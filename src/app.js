@@ -1,67 +1,58 @@
-import express from 'express';
-import cors from 'cors';
-import helmet from 'helmet';
-import env from './config/env.js';
-import { checkDatabaseConnection } from './config/database.js';
-import { httpLogger, logger } from './config/logger.js';
-import {
-  errorMiddleware,
-  notFoundHandler,
-} from './middlewares/error.middleware.js';
+import express from "express";
+import helmet from "helmet";
+import cors from "cors";
+import cookieParser from "cookie-parser";
+import { sanitize } from "#src/middlewares/sanitize.js";
+import hpp from "hpp";
+import { env } from "#src/config/env.js";
+import { registerRoutes } from "#src/routes/index.js";
+import { apiLimiter } from "#src/middlewares/rateLimit.js";
+import requestLogger from "#src/middlewares/requestLogger.js";
+import { notFound, errorHandler } from "#src/middlewares/error.js";
 
-const app = express();
+export async function createApp() {
+  const app = express();
 
-app.use(helmet());
-app.use(
-  cors({
-    origin: env.CORS_ORIGIN === '*' ? true : env.CORS_ORIGIN,
-    methods: ['GET', 'POST', 'PUT', 'DELETE'],
-    credentials: true,
-  })
-);
-app.use(express.json({ limit: '1mb' }));
-app.use(express.urlencoded({ extended: true, limit: '1mb' }));
-app.use(httpLogger);
+  // ── Security headers ──
+  app.use(helmet());
 
-app.get('/health', (_req, res) => {
-  res.status(200).json({
-    success: true,
-    status: 'healthy',
-    environment: env.NODE_ENV,
-    uptime: process.uptime(),
+  // ── CORS (env-driven allowlist) ──
+  app.use(
+    cors({
+      origin: (origin, cb) => {
+        // Allow server-to-server / curl / Postman (no Origin header)
+        if (!origin) return cb(null, true);
+        if (env.frontendUrls.includes(origin)) return cb(null, true);
+        return cb(null, false);
+      },
+      credentials: true,
+      methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+      allowedHeaders: ["Content-Type", "Authorization"],
+    })
+  );
+
+  // ── Body parsing + injection guards ──
+  app.use(express.json({ limit: "20kb" }));
+  app.use(express.urlencoded({ extended: true, limit: "20kb" }));
+  app.use(cookieParser());
+  app.use(sanitize); // NoSQL injection guard (Express 5 safe)
+  app.use(hpp()); // HTTP parameter pollution guard
+
+  // ── Logging + rate limiting ──
+  app.use(requestLogger);
+  app.use("/api", apiLimiter);
+
+  // ── Health check ──
+  app.get("/api/health", (_req, res) => {
+    res.json({ success: true, status: "ok", service: "backend-template", time: new Date().toISOString() });
   });
-});
 
-app.get('/health/ready', async (_req, res) => {
-  try {
-    await checkDatabaseConnection();
+  // ── Dynamic module routes: /api/<module> ──
+  await registerRoutes(app);
 
-    res.status(200).json({
-      success: true,
-      status: 'ready',
-      database: 'connected',
-    });
-  } catch (error) {
-    logger.error('Database readiness check failed:', error.message);
+  // ── 404 + central error handler (always last) ──
+  app.use(notFound);
+  app.use(errorHandler);
 
-    res.status(503).json({
-      success: false,
-      status: 'not_ready',
-      database: 'disconnected',
-    });
-  }
-});
-
-app.get('/', (_req, res) => {
-  res.status(200).json({
-    success: true,
-    message: 'Backend template is running.',
-    app: env.APP_NAME,
-    environment: env.NODE_ENV,
-  });
-});
-
-app.use(notFoundHandler);
-app.use(errorMiddleware);
-
-export default app;
+  return app;
+}
