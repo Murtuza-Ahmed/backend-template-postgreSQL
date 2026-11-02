@@ -1,86 +1,54 @@
 generator client {
   provider = "prisma-client"
-  output = "../generated/prisma"
 }
 
 datasource db {
   provider = "postgresql"
 }
 
-enum UserStatus {
-  PENDING
-  ACTIVE
-  INACTIVE
-  BLOCKED
+enum Role {
+  user
+  admin
 }
 
-model SystemSetting {
-  id        String   @id @default(uuid()) @db.Uuid
-  key       String   @unique
-  value     String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+enum OtpPurpose {
+  email_verification
+  password_reset
+  email_recovery
+  email_change
 }
 
 model User {
-  id              String      @id @default(uuid()) @db.Uuid
-  name            String
-  email           String      @unique
-  passwordHash    String
-  emailVerifiedAt DateTime?
-  status          UserStatus  @default(PENDING)
-  lastLoginAt     DateTime?
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
+  id                   String    @id @default(uuid())
+  name                 String
+  email                String    @unique
+  password             String?
+  phone                String?   @unique
+  avatarUrl            String?
+  role                 Role      @default(user)
+  providers            String[]  @default(["local"])
+  googleId             String?   @unique
+  accountVerified      Boolean   @default(false)
+  isActive             Boolean   @default(true)
+  refreshTokenHash     String?
+  passwordResetTokenHash String?
+  passwordResetExpires DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
 
-  roles UserRole[]
-
-  @@index([status])
+  @@index([createdAt(sort: Desc)])
 }
 
-model Role {
-  id          String   @id @default(uuid()) @db.Uuid
-  name        String   @unique
-  description String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+model Otp {
+  id        String     @id @default(uuid())
+  email     String
+  purpose   OtpPurpose
+  codeHash  String
+  attempts  Int        @default(0)
+  expiresAt DateTime
+  meta      Json?
+  createdAt DateTime   @default(now())
 
-  users      UserRole[]
-  permissions RolePermission[]
-}
-
-model Permission {
-  id          String   @id @default(uuid()) @db.Uuid
-  name        String   @unique
-  description String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  roles RolePermission[]
-}
-
-model UserRole {
-  userId    String   @db.Uuid
-  roleId    String   @db.Uuid
-  createdAt DateTime @default(now())
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
-
-  @@id([userId, roleId])
-  @@index([userId])
-  @@index([roleId])
-}
-
-model RolePermission {
-  roleId      String   @db.Uuid
-  permissionId String   @db.Uuid
-  createdAt   DateTime @default(now())
-
-  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
-  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
-
-  @@id([roleId, permissionId])
-  @@index([roleId])
-  @@index([permissionId])
+  @@index([email, purpose])
+  @@index([expiresAt])
 }

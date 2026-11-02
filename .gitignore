@@ -1,24 +1,5 @@
-# Dependencies
 node_modules/
-
-# Environment varibales
 .env
-.env.*
-!.env.example
-
-# yarn error logs
-yarn-error.log
-
-# Code coverage
-uploads
-logs/
-coverage/
-
-dist/
-build/
-
+*.log
 .DS_Store
-Thumbs.db
-
-.vscode/
-.idea/
+coverage/
