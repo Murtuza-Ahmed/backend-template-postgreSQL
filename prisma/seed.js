@@ -2,9 +2,11 @@
 // Credentials come from .env (ADMIN_EMAIL / ADMIN_PASSWORD) with safe defaults.
 import "dotenv/config";
 import bcrypt from "bcrypt";
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient } from "#src/generated/prisma/client.ts";
+import { PrismaPg } from "@prisma/adapter-pg";
 
-const prisma = new PrismaClient();
+const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
+const prisma = new PrismaClient({ adapter });
 
 const email = process.env.ADMIN_EMAIL ?? "admin@example.com";
 const password = process.env.ADMIN_PASSWORD ?? "ChangeMe123!";
